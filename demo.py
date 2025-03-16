@@ -19,10 +19,15 @@ sys.path.append(os.path.join(ROOT_DIR, 'models'))
 sys.path.append(os.path.join(ROOT_DIR, 'dataset'))
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 
-from graspnet import GraspNet, pred_decode
-from graspnet_dataset import GraspNetDataset
-from collision_detector import ModelFreeCollisionDetector
-from data_utils import CameraInfo, create_point_cloud_from_depth_image
+from graspnet_baseline.models.graspnet import GraspNet, pred_decode
+from graspnet_baseline.utils.collision_detector import ModelFreeCollisionDetector
+from graspnet_baseline.utils.data_utils import CameraInfo, create_point_cloud_from_depth_image
+from graspnetAPI import GraspGroup
+
+# from graspnet import GraspNet, pred_decode
+# from graspnet_dataset import GraspNetDataset
+# from collision_detector import ModelFreeCollisionDetector
+# from data_utils import CameraInfo, create_point_cloud_from_depth_image
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--checkpoint_path', required=True, help='Model checkpoint path')

@@ -14,9 +14,10 @@ sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'pointnet2'))
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 
-import pytorch_utils as pt_utils
-from pointnet2_utils import CylinderQueryAndGroup
-from loss_utils import generate_grasp_views, batch_viewpoint_params_to_matrix
+import graspnet_baseline.pointnet2.pytorch_utils as pt_utils
+from graspnet_baseline.pointnet2.pointnet2_utils import CylinderQueryAndGroup
+
+from graspnet_baseline.utils.loss_utils import generate_grasp_views, batch_viewpoint_params_to_matrix
 
 
 class ApproachNet(nn.Module):

@@ -11,9 +11,10 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'knn'))
 
-from knn_modules import knn
-from loss_utils import GRASP_MAX_WIDTH, batch_viewpoint_params_to_matrix,\
+from graspnet_baseline.knn.knn_modules import knn
+from graspnet_baseline.utils.loss_utils import GRASP_MAX_WIDTH, batch_viewpoint_params_to_matrix,\
                        transform_point_cloud, generate_grasp_views
+
 
 def process_grasp_labels(end_points):
     """ Process labels according to scene points and object poses. """
