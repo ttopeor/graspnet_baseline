@@ -15,6 +15,7 @@ sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'pointnet2'))
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 
+from graspnet_baseline.models.backbone import Pointnet2Backbone
 from backbone import Pointnet2Backbone
 from modules import ApproachNet, CloudCrop, OperationNet, ToleranceNet
 from loss import get_loss
