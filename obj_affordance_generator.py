@@ -11,22 +11,8 @@ from graspnet_baseline.utils.data_utils import CameraInfo, create_point_cloud_fr
 from graspnetAPI import GraspGroup
 
 from object_segments.detect_obj import ObjDetectorSOLOv2
-
-COCO_80_CLASSES = (
-    'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train',
-    'truck', 'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter',
-    'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear',
-    'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase',
-    'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat',
-    'baseball glove', 'skateboard', 'surfboard', 'tennis racket', 'bottle',
-    'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
-    'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut',
-    'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table',
-    'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
-    'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock',
-    'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
-)
-
+from scipy.spatial.transform import Rotation as R
+from utils.math_tools import parent_to_child
 
 class ObjectAffordanceGenerator:
 
@@ -40,7 +26,6 @@ class ObjectAffordanceGenerator:
         num_view=300,
         collision_thresh=0.01,
         voxel_size=0.01,
-        visualize=True
     ):
 
         self.graspnet_checkpoint_path = graspnet_checkpoint_path
@@ -51,7 +36,6 @@ class ObjectAffordanceGenerator:
         self.num_view = num_view
         self.collision_thresh = collision_thresh
         self.voxel_size = voxel_size
-        self.visualize = visualize
 
         if target_classes is None:
             target_classes = []
@@ -153,6 +137,7 @@ class ObjectAffordanceGenerator:
             grasp_preds = pred_decode(end_points)
         gg_array = grasp_preds[0].detach().cpu().numpy()  # (num_grasp, 8)
         gg = GraspGroup(gg_array)
+        
         return gg
 
 
@@ -165,13 +150,70 @@ class ObjectAffordanceGenerator:
 
 
     def vis_grasps(self, gg, cloud_o3d, topK=50):
-
+        """
+        Visualize top-K grasps in Open3D along with:
+          - The original point cloud
+          - A global camera coordinate frame at origin
+          - A coordinate frame for each grasp
+        """
+        # NMS and sort
         gg.nms()
         gg.sort_by_score()
         gg_topk = gg[:topK]
-        grippers = gg_topk.to_open3d_geometry_list()
-        o3d.visualization.draw_geometries([cloud_o3d, *grippers])
 
+        # Convert the topK grasps to open3d line geometries
+        gripper_geometries = gg_topk.to_open3d_geometry_list()
+
+        # 1) Create a global/camera coordinate frame for reference
+        #    Adjust 'size' as needed to match your scene scale
+        camera_axes = o3d.geometry.TriangleMesh.create_coordinate_frame(
+            size=0.1,  # e.g., 0.1 meters
+            origin=[0, 0, 0]
+        )
+
+        # 2) Create small coordinate frames for each grasp
+        grasp_frames = []
+        for i in range(len(gg_topk)):
+            R_3x3 = gg_topk[i].rotation_matrix    # (3,3)
+            t_3 = gg_topk[i].translation          # (3,)
+            # Convert to [x, y, z, roll, pitch, yaw]
+            transed_grasp = self.grasp_trans(t_3, R_3x3)  
+            # Convert Euler angles back to rotation matrix
+            r_euler = R.from_euler('XYZ', transed_grasp[3:], degrees=False)  # Correct usage
+            Rot = r_euler.as_matrix() 
+
+            # Extract translation
+            Trans = transed_grasp[:3]
+
+            # Build a 4x4 transform
+            T = np.eye(4)
+            T[:3, :3] = Rot
+            T[:3, 3] = Trans
+            # Create a small coordinate frame to represent the grasp pose
+            frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+                size=0.05  # e.g., 5cm
+            )
+            frame.transform(T)
+            grasp_frames.append(frame)
+
+        # 3) Collect all geometries
+        all_geometries = [cloud_o3d, camera_axes]        # Add cloud and world coordinate frame
+        all_geometries.extend(gripper_geometries)        # Add the gripper line sets
+        all_geometries.extend(grasp_frames)              # Add coordinate frames for each grasp
+
+        # 4) Visualize
+        o3d.visualization.draw_geometries(all_geometries)
+        
+    def grasp_trans(self, translation, rotation_matrix):
+        r = R.from_matrix(rotation_matrix)
+        roll, pitch, yaw = r.as_euler('XYZ', degrees=False)
+        x, y, z = translation
+        trans_rot = np.array([x, y, z, roll, pitch, yaw], dtype=np.float32)
+        
+        trans = [0,0,0,0,1.5707963268,-1.5707963268]
+        grasp_trans = parent_to_child(trans_rot,trans)
+        return grasp_trans
+        
 if __name__ == '__main__':
     BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
     REPO_DIR = os.path.join(BASE_DIR, '..','..')           
@@ -184,7 +226,6 @@ if __name__ == '__main__':
     parser.add_argument('--num_view',  type=int, default=300)
     parser.add_argument('--collision_thresh', type=float, default=0.01)
     parser.add_argument('--voxel_size', type=float, default=0.01)
-    parser.add_argument('--visualize', action='store_true', default=True)
     args = parser.parse_args()
 
     generator = ObjectAffordanceGenerator(
@@ -193,6 +234,5 @@ if __name__ == '__main__':
         num_view=args.num_view,
         collision_thresh=args.collision_thresh,
         voxel_size=args.voxel_size,
-        visualize=args.visualize
     )
 
