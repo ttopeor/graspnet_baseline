@@ -210,7 +210,7 @@ class ObjectAffordanceGenerator:
         x, y, z = translation
         trans_rot = np.array([x, y, z, roll, pitch, yaw], dtype=np.float32)
         
-        trans = [0.0,0,0,0,1.5707963268,-1.5707963268]
+        trans = [0.005,0,0,0,1.5707963268,-1.5707963268]
         grasp_trans = parent_to_child(trans_rot,trans)
         return grasp_trans
         
